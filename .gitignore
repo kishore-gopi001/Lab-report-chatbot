@@ -15,3 +15,6 @@ __pycache__/
 # IDE
 .vscode/
 .idea/
+
+# data files
+data/raw/
