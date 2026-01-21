@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="cards">
+    <div class="card">
+        <h3>Total Labs</h3>
+        <p id="totalLabs">Loading...</p>
+    </div>
+
+    <div class="card abnormal">
+        <h3>Abnormal</h3>
+        <p id="abnormalCount">Loading...</p>
+    </div>
+
+    <div class="card critical">
+        <h3>Critical</h3>
+        <p id="criticalCount">Loading...</p>
+    </div>
+</section>
+
+<section class="charts">
+    <div class="chart-box">
+        <h3>Abnormal & Critical Labs by Test</h3>
+        <canvas id="labChart"></canvas>
+    </div>
+
+    <div class="chart-box">
+        <h3>Abnormal & Critical Labs by Gender</h3>
+        <canvas id="genderChart"></canvas>
+    </div>
+</section>
+
+<section class="chatbot">
+    <h2>🤖 Embedded Lab Chatbot</h2>
+
+    <div class="chat-input">
+        <input id="subjectInput" placeholder="Enter subject_id (e.g. 10014354)">
+        <button onclick="askChatbot()">Ask</button>
+    </div>
+
+    <pre id="chatbotResponse">
+Chatbot responses will appear here...
+    </pre>
+</section>
+
+{% endblock %}
