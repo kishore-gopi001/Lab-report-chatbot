@@ -1,5 +1,8 @@
 from database.db import get_connection
 
+
+# ---------------- INSERTS ----------------
+
 INSERT_SQL = """
 INSERT INTO lab_interpretations (
     subject_id,
@@ -15,19 +18,28 @@ INSERT INTO lab_interpretations (
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 
+
 def insert_lab_results_bulk(records: list[tuple]):
+    """
+    Bulk insert lab interpretations.
+    Used during ingestion / preprocessing (FAST).
+    """
     if not records:
         return
 
     conn = get_connection()
     cursor = conn.cursor()
-
     cursor.executemany(INSERT_SQL, records)
     conn.commit()
     conn.close()
 
 
 def clear_lab_interpretations():
+    """
+    ⚠️ DEVELOPMENT ONLY
+    Clears all lab interpretations.
+    DO NOT call this in production.
+    """
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM lab_interpretations")
@@ -35,10 +47,15 @@ def clear_lab_interpretations():
     conn.close()
 
 
-def get_abnormal_labs_by_subject(subject_id: int):
+# ---------------- AI SUPPORT QUERIES ----------------
+
+def get_abnormal_labs_by_subject(subject_id: int, limit: int = 5):
     """
-    Fetch abnormal and critical labs for a patient
-    to be used by the AI explanation layer.
+    Fetch latest abnormal / critical labs for AI summary.
+
+    LIMIT is mandatory to:
+    - prevent long prompts
+    - avoid Ollama timeouts
     """
 
     query = """
@@ -50,6 +67,46 @@ def get_abnormal_labs_by_subject(subject_id: int):
     FROM lab_interpretations
     WHERE subject_id = ?
       AND status IN ('ABNORMAL', 'CRITICAL')
+    ORDER BY processed_time DESC  -- processed_time must be ISO format
+    LIMIT ?
+    """
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(query, (subject_id, limit))
+    rows = cursor.fetchall()
+    conn.close()
+
+    return [
+        {
+            "test_name": row["test_name"],
+            "value": row["value"],
+            "unit": row["unit"],
+            "status": row["status"],
+        }
+        for row in rows
+    ]
+
+
+# ---------------- DASHBOARD / CHAT HELPERS ----------------
+
+def get_all_labs_by_subject(subject_id: int):
+    """
+    Fetch all labs for chatbot conversational Q&A.
+    This is the main RAG retrieval function.
+    """
+
+    query = """
+    SELECT
+        test_name,
+        value,
+        unit,
+        gender,
+        status,
+        reason,
+        processed_time
+    FROM lab_interpretations
+    WHERE subject_id = ?
     ORDER BY processed_time DESC
     """
 
@@ -59,12 +116,26 @@ def get_abnormal_labs_by_subject(subject_id: int):
     rows = cursor.fetchall()
     conn.close()
 
-    return [
-        {
-            "test_name": r[0],
-            "value": r[1],
-            "unit": r[2],
-            "status": r[3]
-        }
-        for r in rows
-    ]
+    return [dict(row) for row in rows]
+
+
+def get_critical_unreviewed():
+    """
+    Used for reporting dashboard alerts.
+    """
+
+    query = """
+    SELECT *
+    FROM lab_interpretations
+    WHERE status = 'CRITICAL'
+      AND reviewed = 0
+    ORDER BY processed_time DESC
+    """
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    conn.close()
+
+    return [dict(row) for row in rows]
