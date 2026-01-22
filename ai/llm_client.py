@@ -15,7 +15,7 @@ def _clean_text(text: str) -> str:
     Normalize LLM output safely:
     - normalize whitespace
     - soften unsafe phrasing
-    - keep meaning intact
+    - ensure sentence completeness
     """
 
     if not text:
@@ -24,7 +24,7 @@ def _clean_text(text: str) -> str:
     # Normalize whitespace
     text = re.sub(r"\s+", " ", text).strip()
 
-    # Soften unsafe language instead of deleting meaning
+    # Soften unsafe medical phrasing
     replacements = {
         "you have": "the results suggest",
         "you might have": "there may be",
@@ -38,13 +38,16 @@ def _clean_text(text: str) -> str:
     for bad, safe in replacements.items():
         text = re.sub(bad, safe, text, flags=re.IGNORECASE)
 
-    return text if text else SAFE_FALLBACK
+    # ✅ Ensure sentence completeness
+    if text[-1] not in ".!?":
+        text += " Further clinical review is advised."
+
+    return text
 
 
 def generate_ai_summary(lab_results: list[dict]) -> str:
     """
     Generate a safe, non-diagnostic AI summary.
-    Used ONLY for lab explanation, not diagnosis.
     """
 
     if not lab_results:
@@ -64,13 +67,12 @@ STRICT RULES:
 - Do NOT name specific medical conditions
 - Do NOT recommend treatments
 - Use cautious, observational language
-- If information is insufficient, say so politely
 - Always advise clinician review
 
 LAB FINDINGS:
 {findings}
 
-Provide a short explanation (2–3 sentences).
+Provide a concise explanation in 2–3 complete sentences.
 """
 
     payload = {
@@ -78,17 +80,18 @@ Provide a short explanation (2–3 sentences).
         "prompt": prompt,
         "stream": False,
         "options": {
-            "num_predict": 100,
+            "num_predict": 180,
             "temperature": 0.2,
             "top_p": 0.9
-        }
+        },
+        "stop": ["\n\n", "###"]
     }
 
     try:
         response = requests.post(
             OLLAMA_URL,
             json=payload,
-            timeout=60
+            timeout=90
         )
         response.raise_for_status()
 
@@ -96,5 +99,4 @@ Provide a short explanation (2–3 sentences).
         return _clean_text(raw_text)
 
     except Exception:
-        # Never break the API
         return SAFE_FALLBACK
