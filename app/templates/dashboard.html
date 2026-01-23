@@ -2,20 +2,11 @@
 {% block content %}
 
 <section class="cards">
-    <div class="card">
-        <h3>Total Labs</h3>
-        <p id="totalLabs">Loading...</p>
-    </div>
-
-    <div class="card abnormal">
-        <h3>Abnormal</h3>
-        <p id="abnormalCount">Loading...</p>
-    </div>
-
-    <div class="card critical">
-        <h3>Critical</h3>
-        <p id="criticalCount">Loading...</p>
-    </div>
+    <div class="card"><h3>Total Labs</h3><p id="totalLabs">–</p></div>
+    <div class="card normal"><h3>Normal</h3><p id="normalCount">–</p></div>
+    <div class="card abnormal"><h3>Abnormal</h3><p id="abnormalCount">–</p></div>
+    <div class="card critical"><h3>Critical</h3><p id="criticalCount">–</p></div>
+    <div class="card unknown"><h3>Unknown</h3><p id="unknownCount">–</p></div>
 </section>
 
 <section class="charts">
@@ -23,24 +14,34 @@
         <h3>Abnormal & Critical Labs by Test</h3>
         <canvas id="labChart"></canvas>
     </div>
-
     <div class="chart-box">
         <h3>Abnormal & Critical Labs by Gender</h3>
         <canvas id="genderChart"></canvas>
     </div>
 </section>
 
-<section class="chatbot">
-    <h2>🤖 Embedded Lab Chatbot</h2>
+<section class="charts charts-center">
+    <div class="chart-box small">
+        <h3>Overall Lab Status Distribution</h3>
+        <canvas id="statusChart"></canvas>
+    </div>
+</section>
 
-    <div class="chat-input">
-        <input id="subjectInput" placeholder="Enter subject_id (e.g. 10014354)">
-        <button onclick="askChatbot()">Ask</button>
+<section class="insights">
+    <div class="insight-box">
+        <h3>Top Affected Lab Tests</h3>
+        <table id="topTestsTable">
+            <thead>
+                <tr><th>Test</th><th>Status</th><th>Patients</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
     </div>
 
-    <pre id="chatbotResponse">
-Chatbot responses will appear here...
-    </pre>
+    <div class="insight-box critical-box">
+        <h3>⚠ Unreviewed Critical Alerts</h3>
+        <ul id="criticalAlerts"></ul>
+    </div>
 </section>
 
 {% endblock %}

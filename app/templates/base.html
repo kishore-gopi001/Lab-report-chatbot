@@ -9,19 +9,58 @@
 </head>
 
 <body>
-    <header>
-        <h1>Lab Report Interpretation System</h1>
-        <p class="subtitle">Clinical insights · Non-diagnostic · Rule-based</p>
-    </header>
 
-    <main>
-        {% block content %}{% endblock %}
-    </main>
+<header>
+    <h1>Lab Report Interpretation System</h1>
+    <p class="subtitle">Clinical insights · AI-assisted · Non-diagnostic</p>
+</header>
 
-    <footer>
-        <p>⚠ This system provides explanations only. Not for diagnosis.</p>
-    </footer>
+<main>
+    {% block content %}{% endblock %}
+</main>
 
-    <script src="/static/js/dashboard.js"></script>
+<footer>
+    <p>⚠ This system provides explanations only. Not for diagnosis.</p>
+</footer>
+
+<!-- CHATBOT TOGGLE -->
+<div id="chatbotToggle" class="chatbot-toggle">💬</div>
+
+<!-- CHATBOT WINDOW -->
+<div id="chatbotWindow" class="chatbot-window hidden">
+
+    <div class="chatbot-header">
+        <span>🤖 Lab Assistant</span>
+        <button id="chatbotClose">✕</button>
+    </div>
+
+    <!-- SUBJECT ID -->
+    <div class="chatbot-subject">
+        <label for="subjectInput">Patient Subject ID</label>
+        <input
+            id="subjectInput"
+            type="number"
+            placeholder="Enter subject ID (e.g. 10014354)"
+        />
+    </div>
+
+    <!-- AI SUMMARY -->
+    <div id="aiSummary" class="chatbot-summary">
+        <strong>🧠 AI Clinical Summary</strong>
+        <p>Enter a patient subject ID to generate the summary.</p>
+    </div>
+
+    <!-- CHAT MESSAGES -->
+    <div id="chatMessages" class="chatbot-messages"></div>
+
+    <!-- CHAT INPUT -->
+    <div class="chatbot-input">
+        <input id="chatInput" type="text" placeholder="Ask about lab results..." />
+        <button id="sendMessage">Send</button>
+    </div>
+
+</div>
+
+<script src="/static/js/dashboard.js"></script>
 </body>
 </html>

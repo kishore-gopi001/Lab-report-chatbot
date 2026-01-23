@@ -8,6 +8,7 @@ from database.repository import (
     get_all_labs_by_subject
 )
 from ai.llm_client import generate_ai_summary
+from app.vector.vector_store import search_intent   # ✅ NEW (VECTOR DB)
 
 
 # ---------------- CONSTANTS ----------------
@@ -16,6 +17,8 @@ DISCLAIMER = (
     "This explanation is for informational purposes only. "
     "It does not provide medical diagnosis or treatment advice."
 )
+
+MIN_CONFIDENCE = 0.50  # 🔒 safety threshold
 
 
 # ---------------- DB UTILITIES ----------------
@@ -111,31 +114,45 @@ def get_ai_summary_from_cache(subject_id: int):
     return _AI_SUMMARY_CACHE.get(subject_id)
 
 
-# ---------------- HUMAN-LIKE CHAT INTERACTION ----------------
+# ---------------- HUMAN + AI CHATBOT (WITH SCORE) ----------------
 
-def answer_user_question(subject_id: int, question: str) -> str:
+def answer_user_question(subject_id: int, question: str) -> dict:
     """
-    Rule-based, safe, DB-grounded chatbot
+    Hybrid chatbot:
+    - Vector DB for intent detection + score
+    - SQLite for truth
+    - Safe medical behavior
     """
 
-    question = question.lower().strip()
+    question_clean = question.lower().strip()
     labs = get_all_labs_by_subject(subject_id)
 
     if not labs:
-        return "No laboratory data is available for this subject."
+        return {
+            "answer": "No laboratory data is available for this subject.",
+            "confidence_score": 1.0
+        }
 
-    # ---------------- NORMALIZATION ----------------
+    # =====================================================
+    #  VECTOR SEARCH (INTENT + SCORE)
+    # =====================================================
 
-    aliases = {
-        "hb": "hemoglobin",
-        "platelet": "platelets",
-        "wbc": "wbc",
-        "rbc": "rbc",
-    }
-    for k, v in aliases.items():
-        question = question.replace(k, v)
+    intent_result = search_intent(question_clean)
+    intent = intent_result["intent"]
+    score = round(intent_result["score"], 2)
 
-    # ---------------- PRE-COMPUTE ----------------
+    if score < MIN_CONFIDENCE:
+        return {
+            "answer": (
+                "I am not confident enough to answer this question "
+                "based on the available laboratory data."
+            ),
+            "confidence_score": score
+        }
+
+    # =====================================================
+    #  PRE-COMPUTE DB STRUCTURES
+    # =====================================================
 
     test_names = sorted({l["test_name"] for l in labs})
 
@@ -148,80 +165,63 @@ def answer_user_question(subject_id: int, question: str) -> str:
     critical_labs = {}
     for l in labs:
         if l["status"] == "CRITICAL":
-            # keep latest per test
             critical_labs[l["test_name"]] = f"{l['value']} {l['unit']}"
 
-    lab_lookup = {
-        l["test_name"].lower(): l
-        for l in labs
-    }
+    lab_lookup = {l["test_name"].lower(): l for l in labs}
 
     # =====================================================
-    # 🔥 INTENT 1 — LIST TESTS (HIGHEST PRIORITY)
+    #  ROUTING BY INTENT
     # =====================================================
-    if any(
-        phrase in question
-        for phrase in (
-            "what tests",
-            "which tests",
-            "what labs",
-            "which labs",
-            "tests were done",
-            "labs were done",
-            "list tests",
-            "list labs",
-            "show tests",
-            "show labs",
-            "all tests",
-            "all labs",
-        )
-    ):
-        return (
+
+    if intent == "list_tests":
+        answer = (
             "The following laboratory tests were performed:\n- "
             + "\n- ".join(test_names)
         )
 
-    # =====================================================
-    # INTENT 2 — CRITICAL
-    # =====================================================
-    if "critical" in question:
-        if not critical_labs:
-            return "No critical lab values were detected."
-
-        return (
-            "Critical lab results:\n"
-            + "\n".join(f"- {k}: {v}" for k, v in critical_labs.items())
-        )
-
-    # =====================================================
-    # INTENT 3 — ABNORMAL
-    # =====================================================
-    if "abnormal" in question:
-        if not abnormal_tests:
-            return "All lab values are within expected ranges."
-
-        return (
-            "The abnormal lab tests include:\n- "
+    elif intent == "abnormal_labs":
+        answer = (
+            "The abnormal laboratory tests include:\n- "
             + "\n- ".join(abnormal_tests)
+            if abnormal_tests
+            else "All laboratory values are within expected ranges."
+        )
+
+    elif intent == "critical_labs":
+        answer = (
+            "Critical laboratory results:\n"
+            + "\n".join(f"- {k}: {v}" for k, v in critical_labs.items())
+            if critical_labs
+            else "No critical laboratory values were detected."
+        )
+
+    elif intent == "specific_test":
+        found = False
+        for name, lab in lab_lookup.items():
+            if name in question_clean:
+                answer = (
+                    f"{lab['test_name']} result:\n"
+                    f"- Value: {lab['value']} {lab['unit']}\n"
+                    f"- Status: {lab['status']}\n"
+                    f"- Interpretation note: {lab['reason']}"
+                )
+                found = True
+                break
+
+        if not found:
+            answer = "That laboratory test was not found for this subject."
+
+    else:
+        answer = (
+            "I can help explain laboratory test results only. "
+            "Please consult a clinician for diagnosis or treatment."
         )
 
     # =====================================================
-    # INTENT 4 — SPECIFIC TEST
+    #  FINAL RESPONSE
     # =====================================================
-    for name_lower, lab in lab_lookup.items():
-        if name_lower in question:
-            return (
-                f"{lab['test_name']} result:\n"
-                f"- Value: {lab['value']} {lab['unit']}\n"
-                f"- Status: {lab['status']}\n"
-                f"- Interpretation note: {lab['reason']}"
-            )
 
-    # =====================================================
-    # OUT OF SCOPE
-    # =====================================================
-    return (
-        "I can help explain laboratory test results and values only. "
-        "For medical diagnosis or treatment decisions, "
-        "please consult a qualified healthcare professional."
-    )
+    return {
+        "answer": answer,
+        "confidence_score": score
+    }
