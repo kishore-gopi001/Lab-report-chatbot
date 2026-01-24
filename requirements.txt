@@ -4,3 +4,5 @@ pandas
 pydantic
 python-dotenv
 requests
+scikit-learn
+numpy

@@ -28,12 +28,19 @@ INTENTS = [
             "which tests are critical"
         ]
     },
-    {
+   {
         "intent": "specific_test",
         "examples": [
             "what is my hemoglobin",
+            "hemoglobin value",
             "wbc result",
-            "platelet count"
+            "platelet count",
+            "sodium level",
+            "potassium value",
+            "creatinine result",
+            "glucose reading",
+            "chloride value",
+            "blood urea nitrogen"
         ]
     }
 ]

@@ -83,16 +83,24 @@ canvas {
 /* ================= INSIGHTS ================= */
 .insights {
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: 1fr;
     gap: 20px;
     padding: 20px;
 }
 
 .insight-box {
     background: white;
-    padding: 16px;
+    padding: 20px;
     border-radius: 10px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    overflow-x: auto;
+}
+
+.insight-box h3 {
+    margin-top: 0;
+    margin-bottom: 16px;
+    color: #1f3c88;
+    font-size: 1.1rem;
 }
 
 .critical-box {
@@ -104,20 +112,43 @@ table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.9rem;
+    table-layout: fixed;
 }
 
 thead {
     background: #1f3c88;
     color: white;
+    position: sticky;
+    top: 0;
 }
 
-th, td {
-    padding: 8px 10px;
-    border-bottom: 1px solid #ddd;
+th {
+    padding: 12px 10px;
+    border-bottom: 2px solid #1f3c88;
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #e0e0e0;
+    text-align: left;
+    word-break: break-word;
+}
+
+tbody tr {
+    transition: background-color 0.2s ease;
 }
 
 tbody tr:hover {
     background: #f5f7fb;
+}
+
+tbody tr:nth-child(even) {
+    background: #fafbfc;
 }
 
 /* ================= FOOTER ================= */
@@ -233,4 +264,122 @@ footer {
     border: none;
     padding: 10px 16px;
     border-radius: 6px;
+}
+
+/* ================= RISK BADGES ================= */
+.badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    text-align: center;
+}
+
+.badge-normal {
+    background: #4caf50;
+    color: white;
+}
+
+.badge-abnormal {
+    background: #ff9800;
+    color: white;
+}
+
+.badge-critical {
+    background: #f44336;
+    color: white;
+}
+
+/* ================= FILTER FORM ================= */
+.filter-form {
+    display: flex;
+    gap: 15px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    padding: 15px;
+    background: #f9fafc;
+    border-radius: 8px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.form-group label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #333;
+}
+
+.form-group select,
+.form-group input {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background: white;
+    cursor: pointer;
+}
+
+.form-group select:focus,
+.form-group input:focus {
+    outline: none;
+    border-color: #1f3c88;
+    box-shadow: 0 0 0 3px rgba(31, 60, 136, 0.1);
+}
+
+.btn-filter {
+    padding: 8px 20px;
+    background: #1f3c88;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-filter:hover {
+    background: #153258;
+}
+
+/* ================= PAGINATION ================= */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+}
+
+.btn-pagination {
+    padding: 8px 16px;
+    background: #1f3c88;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+.btn-pagination:hover:not(:disabled) {
+    background: #153258;
+}
+
+.btn-pagination:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+#pageInfo {
+    font-weight: 600;
+    color: #1f3c88;
+    min-width: 100px;
+    text-align: center;
 }

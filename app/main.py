@@ -28,6 +28,15 @@ from app.services.report_service import (
     recent_critical_activity,
 )
 
+# ---------------- RISK SERVICES ----------------
+
+from app.services.risk_service import (
+    get_patient_risk_score,
+    get_all_patients_risk_scores,
+    get_high_risk_patients,
+    get_risk_distribution,
+)
+
 # ---------------- APP INIT ----------------
 
 app = FastAPI(
@@ -41,12 +50,24 @@ app = FastAPI(
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
-# ---------------- DASHBOARD ----------------
+# =====================================================
+# DASHBOARD ROUTES
+# =====================================================
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request):
+    """General lab reports and statistics dashboard"""
     return templates.TemplateResponse(
         "dashboard.html",
+        {"request": request}
+    )
+
+
+@app.get("/ml-dashboard", response_class=HTMLResponse)
+def ml_dashboard(request: Request):
+    """ML-powered patient risk prediction dashboard"""
+    return templates.TemplateResponse(
+        "ml-dashboard.html",
         {"request": request}
     )
 
@@ -195,3 +216,41 @@ def reports_unreviewed_critical_summary():
 @app.get("/reports/recent-critical")
 def reports_recent_critical():
     return recent_critical_activity()
+
+
+# =====================================================
+# RISK PREDICTION APIs (ML MODEL)
+# =====================================================
+
+@app.get("/predict/patient/{subject_id}/risk")
+def predict_patient_risk_score(subject_id: int):
+    """
+    Predict risk score for a specific patient using trained ML model
+    Returns: risk_level (0-2), risk_label, confidence, probabilities
+    """
+    return get_patient_risk_score(subject_id)
+
+
+@app.get("/predict/risk-distribution")
+def predict_risk_distribution():
+    """
+    Get distribution of patients across risk levels
+    """
+    return get_risk_distribution()
+
+
+@app.get("/predict/high-risk")
+def predict_high_risk_patients(risk_level: int = 2, limit: int = 50):
+    """
+    Get patients with high risk scores
+    risk_level: 1 = ABNORMAL or higher, 2 = CRITICAL only
+    """
+    return get_high_risk_patients(risk_level, limit)
+
+
+@app.get("/predict/all-patients")
+def predict_all_patients_risk(limit: int = 100):
+    """
+    Get risk scores for all patients (paginated)
+    """
+    return get_all_patients_risk_scores(limit)
