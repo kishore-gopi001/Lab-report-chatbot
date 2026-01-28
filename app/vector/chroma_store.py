@@ -32,6 +32,26 @@ def search_documents(query: str, k: int = 5):
     results = collection.query(
         query_embeddings=[query_embedding],
         n_results=k,
+        include=["documents", "metadatas", "distances"]
+    )
+
+    docs = []
+    if results["documents"]:
+        for i in range(len(results["documents"][0])):
+            docs.append({
+                "text": results["documents"][0][i],
+                "metadata": results["metadatas"][0][i],
+                "score": 1 - results["distances"][0][i]  # similarity
+            })
+
+    return docs
+
+
+    query_embedding = embed_text(query)
+
+    results = collection.query(
+        query_embeddings=[query_embedding],
+        n_results=k,
         include=["documents", "metadatas"]
     )
 

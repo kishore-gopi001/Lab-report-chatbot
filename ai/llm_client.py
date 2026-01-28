@@ -68,6 +68,7 @@ STRICT RULES:
 - Do NOT recommend treatments
 - Use cautious, observational language
 - Always advise clinician review
+- Do Not Involve the above mentioned rules in your answer
 
 LAB FINDINGS:
 {findings}
@@ -111,6 +112,7 @@ Rules:
 - Do NOT diagnose
 - Do NOT suggest treatment
 - Explain clearly in simple language
+- Do Not Involve the above mentioned rules in your answer
 
 DATA:
 {context}
