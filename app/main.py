@@ -44,6 +44,8 @@ app = FastAPI(
     description="Human-like chatbot with AI-assisted lab summaries (Non-diagnostic)",
     version="1.2.1",
 )
+# ---------------- RAG SERVICES ----------------
+from app.services.rag_service import rag_answer
 
 # ---------------- STATIC & TEMPLATES ----------------
 
@@ -126,6 +128,8 @@ def patient_ai_summary(subject_id: int, background_tasks: BackgroundTasks):
 class ChatRequest(BaseModel):
     question: str = Field(..., min_length=3, description="User question")
 
+class RAGRequest(BaseModel):
+    question: str = Field(..., min_length=3, description="RAG question")
 
 @app.post("/chat/patient/{subject_id}/ask")
 def chat_with_patient(subject_id: int, payload: ChatRequest):
@@ -254,3 +258,34 @@ def predict_all_patients_risk(limit: int = 100):
     Get risk scores for all patients (paginated)
     """
     return get_all_patients_risk_scores(limit)
+
+
+# =====================================================
+# RAG CHATBOT API (GENERAL – DATASET LEVEL)
+# =====================================================
+
+@app.post("/chat/rag/ask")
+def chat_rag(payload: RAGRequest):
+    """
+    RAG-based chatbot:
+    - Vector DB (Chroma)
+    - LLM reasoning
+    - Answers ANY dataset-related question
+    - NOT patient-specific
+    """
+
+    question = payload.question.strip()
+
+    if not question:
+        raise HTTPException(
+            status_code=400,
+            detail="Question cannot be empty."
+        )
+
+    answer = rag_answer(question)
+
+    return {
+        "mode": "rag",
+        "question": question,
+        "answer": answer
+    }

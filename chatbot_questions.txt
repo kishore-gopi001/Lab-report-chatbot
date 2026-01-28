@@ -1,0 +1,287 @@
+1. Patient-Specific Questions (Fact Lookup)
+
+📌 RAG
+
+These ask about one patient and specific lab facts.
+
+Examples:
+
+What is the hemoglobin value of patient 10003400?
+
+Show sodium levels for patient 10002111
+
+What tests were done for patient 10001234?
+
+Latest glucose reading for patient 10004567
+
+What is the hematocrit value recorded?
+
+🧪 2. Test-Specific Questions
+
+📌 RAG
+
+Focused on one lab test, across context.
+
+Examples:
+
+What is Hematocrit?
+
+What does a WBC test measure?
+
+What is the normal range for platelets?
+
+Why is creatinine important?
+
+What unit is sodium measured in?
+
+🚦 3. Status-Based Questions (Normal / Abnormal / Critical)
+
+📌 Hybrid (Rules + RAG)
+
+Examples:
+
+Is patient 10003400 critical?
+
+Which test result is abnormal for patient 10002111?
+
+Does this patient have any critical labs?
+
+What does an abnormal glucose level mean?
+
+🔢 4. Count / Aggregate Questions
+
+📌 Deterministic (SQL / logic)
+
+❌ Do NOT send these to RAG directly.
+
+Examples:
+
+How many patients are critical?
+
+Count abnormal lab results
+
+How many hematocrit tests are below normal?
+
+Total number of patients tested
+
+How many reports were uploaded today?
+
+📈 5. Trend / Time-Series Questions
+
+📌 Hybrid
+
+Examples:
+
+How has glucose changed over time for patient 10001234?
+
+Is creatinine increasing or decreasing?
+
+Show platelet trend for last 6 months
+
+Has sodium been stable?
+
+🧬 6. Comparison Questions
+
+📌 Hybrid
+
+Examples:
+
+Compare hemoglobin and hematocrit
+
+Which is worse: sodium or potassium?
+
+Compare patient 1001 and 1002 lab results
+
+Which test shows most abnormalities?
+
+🧾 7. Summary / Overview Questions
+
+📌 Hybrid
+
+Examples:
+
+Summarize patient 10003400 lab report
+
+Give an overview of abnormal labs
+
+Summarize critical findings
+
+Provide a short lab report summary
+
+🧠 8. Explanation / Interpretation Questions
+
+📌 RAG (grounded)
+
+⚠️ No diagnosis or treatment.
+
+Examples:
+
+What does low hematocrit indicate?
+
+Why is high WBC concerning?
+
+Explain abnormal platelet count
+
+What does critical sodium mean?
+
+🚫 9. Negative / Absence Questions
+
+📌 Hybrid
+
+Examples:
+
+Does the patient have any normal labs?
+
+Are there no critical results?
+
+Is everything within range?
+
+Any tests missing?
+
+🔎 10. Filtering Questions
+
+📌 Deterministic + RAG
+
+Examples:
+
+Show only abnormal labs
+
+List critical tests for patient 10003400
+
+Filter labs by date
+
+Show tests above normal range
+
+🗂️ 11. Metadata / Dataset Questions
+
+📌 Deterministic
+
+Examples:
+
+How many lab records exist?
+
+What datasets are loaded?
+
+What data sources are used?
+
+When was the last update?
+
+🧪 12. Rule / Threshold Questions
+
+📌 Deterministic
+
+Examples:
+
+What is the critical range for potassium?
+
+What rules are applied for hematocrit?
+
+Which tests have no rules?
+
+Why is this marked UNKNOWN?
+
+📊 13. Distribution / Analytics Questions
+
+📌 Deterministic / ML
+
+Examples:
+
+Distribution of abnormal vs normal labs
+
+Percentage of critical results
+
+Risk distribution by patient
+
+Which test has highest critical rate?
+
+🧠 14. Predictive / ML-Based Questions
+
+📌 ML Model (NOT RAG)
+
+Examples:
+
+What is the patient risk score?
+
+Is this patient high risk?
+
+Predict future glucose trend
+
+Which patient is most at risk?
+
+🧩 15. “Why / How” System Questions
+
+📌 RAG
+
+Examples:
+
+Why was this marked critical?
+
+How does the system classify abnormal labs?
+
+How is risk score calculated?
+
+How does the chatbot work?
+
+🧭 16. Validation / Sanity Check Questions
+
+📌 Deterministic
+
+Examples:
+
+Is this value within normal range?
+
+Check if hematocrit 27 is critical
+
+Validate sodium level 160
+
+Is this lab result valid?
+
+🔁 17. Cross-Patient Questions
+
+📌 Hybrid
+
+Examples:
+
+Which patients have critical hematocrit?
+
+List patients with abnormal glucose
+
+Compare abnormal counts across patients
+
+🧪 18. Data Quality / Error Questions
+
+📌 Deterministic
+
+Examples:
+
+Why is this test marked UNKNOWN?
+
+Missing reference range for which tests?
+
+Invalid lab values
+
+Duplicate records
+
+📚 19. Knowledge-Only Questions (Static)
+
+📌 RAG (knowledge base)
+
+Examples:
+
+What is a lab reference range?
+
+What is a critical lab value?
+
+Difference between abnormal and critical
+
+🧠 20. Mixed / Compound Questions
+
+📌 Router required
+
+Examples:
+
+How many patients are critical and why?
+
+Count abnormal labs and summarize them
+
+Show critical patients and explain findings

@@ -33,9 +33,14 @@
         <span>🤖 Lab Assistant</span>
         <button id="chatbotClose">✕</button>
     </div>
+    <!-- CHAT MODE TOGGLE -->
+    <div class="chatbot-mode">
+        <button id="detMode" class="mode-btn active">Deterministic</button>
+        <button id="ragMode" class="mode-btn">RAG / AI</button>
+    </div>
 
     <!-- SUBJECT ID -->
-    <div class="chatbot-subject">
+    <div id="patientIdSection" class="chatbot-subject">
         <label for="subjectInput">Patient Subject ID</label>
         <input
             id="subjectInput"

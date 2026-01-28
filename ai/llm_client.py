@@ -100,3 +100,36 @@ Provide a concise explanation in 2–3 complete sentences.
 
     except Exception:
         return SAFE_FALLBACK
+
+
+def ask_llm(context: str, question: str) -> str:
+    prompt = f"""
+You are a clinical data assistant.
+
+Rules:
+- Use ONLY the provided data
+- Do NOT diagnose
+- Do NOT suggest treatment
+- Explain clearly in simple language
+
+DATA:
+{context}
+
+QUESTION:
+{question}
+
+Answer concisely.
+"""
+
+    payload = {
+        "model": MODEL,
+        "prompt": prompt,
+        "stream": False,
+        "options": {
+            "temperature": 0.2,
+            "num_predict": 200
+        }
+    }
+
+    response = requests.post(OLLAMA_URL, json=payload, timeout=60)
+    return response.json().get("response", "").strip()

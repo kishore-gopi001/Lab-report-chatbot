@@ -1,3 +1,7 @@
+let chatMode = "deterministic";
+let summaryPoll = null;
+
+
 // =====================================================
 // DASHBOARD SUMMARY COUNTS
 // =====================================================
@@ -228,9 +232,11 @@ subjectInput.addEventListener("change", async () => {
 
     if (!activeSubjectId) return;
 
+    if (summaryPoll) clearInterval(summaryPoll);
+
     aiSummaryBox.innerHTML = "<p>⏳ Generating AI summary…</p>";
 
-    const poll = setInterval(async () => {
+    summaryPoll = setInterval(async () => {
         const res = await fetch(`/chat/patient/${activeSubjectId}/ai-summary`);
         const data = await res.json();
 
@@ -240,34 +246,109 @@ subjectInput.addEventListener("change", async () => {
                 <p style="margin-top:8px;">${data.summary}</p>
                 <small>${data.disclaimer}</small>
             `;
-            clearInterval(poll);
+            clearInterval(summaryPoll);
+            summaryPoll = null;
         }
     }, 2000);
 });
 
+
+const detModeBtn = document.getElementById("detMode");
+const ragModeBtn = document.getElementById("ragMode");
+const patientIdSection = document.getElementById("patientIdSection");
+
+detModeBtn.onclick = () => {
+    chatMode = "deterministic";
+
+    patientIdSection.style.display = "block";
+    aiSummaryBox.style.display = "block";
+
+    detModeBtn.classList.add("active");
+    ragModeBtn.classList.remove("active");
+};
+
+ragModeBtn.onclick = () => {
+    chatMode = "rag";
+
+    patientIdSection.style.display = "none";
+    aiSummaryBox.style.display = "none";
+
+    chatMessages.innerHTML = "";
+
+    if (summaryPoll) {
+        clearInterval(summaryPoll);
+        summaryPoll = null;
+    }
+
+    ragModeBtn.classList.add("active");
+    detModeBtn.classList.remove("active");
+};
+
+
 // Send chat message
 sendBtn.onclick = async () => {
     const question = chatInput.value.trim();
-    if (!question || !activeSubjectId) return;
+    if (!question) return;
 
     chatMessages.innerHTML += `<div class="msg user">${question}</div>`;
     chatInput.value = "";
 
-    const res = await fetch(`/chat/patient/${activeSubjectId}/ask`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question })
-    });
+    let res;
 
-    const data = await res.json();
+    try {
+        if (chatMode === "deterministic") {
+            if (!activeSubjectId) {
+                chatMessages.innerHTML += `
+                    <div class="msg bot">
+                        <p>Please enter a Patient Subject ID.</p>
+                    </div>`;
+                return;
+            }
 
-    chatMessages.innerHTML += `
-        <div class="msg bot">
-            <strong>📋 Response</strong>
-            <p style="margin-top:6px;">${data.answer}</p>
-            <small>Confidence: ${(data.confidence_score * 100).toFixed(0)}%</small>
-        </div>
-    `;
+            res = await fetch(`/chat/patient/${activeSubjectId}/ask`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ question })
+            });
+
+        } else {
+            res = await fetch(`/chat/rag/ask`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ question })
+            });
+        }
+
+        if (!res.ok) throw new Error("Server error");
+
+        const data = await res.json();
+
+        chatMessages.innerHTML += `
+            <div class="msg bot">
+                <strong>${chatMode === "rag" ? "🤖 AI / Dataset Answer" : "📋 Response"}</strong>
+                <p style="margin-top:6px;">${data.answer || "No response available."}</p>
+            </div>
+        `;
+
+    } catch (err) {
+        chatMessages.innerHTML += `
+            <div class="msg bot">
+                <p>⚠️ Unable to process your request right now.</p>
+            </div>
+        `;
+    }
 
     chatMessages.scrollTop = chatMessages.scrollHeight;
 };
+
+
+
+// 🔑 Ensure correct initial mode UI
+window.addEventListener("load", () => {
+    chatMode = "deterministic";
+    patientIdSection.style.display = "block";
+    aiSummaryBox.style.display = "block";
+
+    detModeBtn.classList.add("active");
+    ragModeBtn.classList.remove("active");
+});
