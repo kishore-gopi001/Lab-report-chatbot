@@ -18,3 +18,4 @@ __pycache__/
 
 # data files
 data/raw/
+data/chroma
