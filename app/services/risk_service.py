@@ -3,7 +3,7 @@ Risk Scoring Service
 Provides APIs for risk prediction and patient risk reports
 """
 
-from app.db import get_db
+from database.db import get_connection as get_db
 from ai.risk_model import predict_patient_risk
 
 
@@ -14,29 +14,6 @@ def get_patient_risk_score(subject_id: int):
     return predict_patient_risk(subject_id)
 
 
-def get_all_patients_risk_scores(limit: int = 100):
-    """
-    Get risk scores for all patients (paginated)
-    """
-    conn = get_db()
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT DISTINCT subject_id
-        FROM lab_interpretations
-        ORDER BY subject_id DESC
-        LIMIT ?
-    """, (limit,))
-
-    patients = cur.fetchall()
-    conn.close()
-
-    risk_scores = []
-    for patient in patients:
-        score = predict_patient_risk(patient['subject_id'])
-        risk_scores.append(score)
-
-    return risk_scores
 
 
 def get_high_risk_patients(risk_level: int = 2, limit: int = 50):

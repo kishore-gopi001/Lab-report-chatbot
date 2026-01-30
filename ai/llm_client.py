@@ -14,13 +14,14 @@ SAFE_FALLBACK = (
 )
 
 
-class MockMessage:
-    def __init__(self, content):
+class LLMResponse:
+    """Mock-like class for consistent response handling across LLM interfaces."""
+    def __init__(self, content: str):
         self.content = content
 
-
-class MockChunk:
-    def __init__(self, content):
+class LLMChunk:
+    """Mock-like class for consistent streaming chunk handling."""
+    def __init__(self, content: str):
         self.content = content
 
 
@@ -54,10 +55,10 @@ class LocalChatOllama:
             response = requests.post(OLLAMA_URL_GENERATE, json=payload, timeout=60)
             response.raise_for_status()
             content = response.json().get("response", "")
-            return MockMessage(content)
+            return LLMResponse(content)
         except Exception as e:
             print(f"Error in LocalChatOllama.invoke: {e}")
-            return MockMessage(SAFE_FALLBACK)
+            return LLMResponse(SAFE_FALLBACK)
 
     async def astream(self, messages: List[Any], **kwargs) -> AsyncIterator[Any]:
         """
@@ -83,12 +84,12 @@ class LocalChatOllama:
                             continue
                         chunk = json.loads(line)
                         if "response" in chunk:
-                            yield MockChunk(chunk["response"])
+                            yield LLMChunk(chunk["response"])
                         if chunk.get("done"):
                             break
         except Exception as e:
             print(f"Error in LocalChatOllama.astream: {e}")
-            yield MockChunk(" Error connecting to local LLM.")
+            yield LLMChunk(" Error connecting to local LLM.")
 
 
 def _clean_text(text: str) -> str:

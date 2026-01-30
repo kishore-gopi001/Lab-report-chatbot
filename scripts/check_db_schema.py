@@ -1,8 +1,8 @@
-import sqlite3
+from database.db import get_connection
 
 def check_db():
     try:
-        conn = sqlite3.connect('database/lab_results.db')
+        conn = get_connection()
         cur = conn.cursor()
         print("--- Tables ---")
         cur.execute("SELECT name, sql FROM sqlite_master WHERE type='table'")

@@ -1,4 +1,4 @@
-import pandas as pd # type: ignore
+import pandas as pd
 
 def join_labevents_with_metadata(
     labevents: pd.DataFrame,

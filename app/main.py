@@ -1,22 +1,28 @@
+# ==============================================================================
+# LAB REPORT INTERPRETATION SYSTEM - CORE API
+# ==============================================================================
+# This FastAPI application serves as the backend for the Lab Report dashboard
+# and the agentic chatbot. It integrates LangGraph for complex medical queries
+# and Random Forest models for risk prediction.
+# ==============================================================================
+
+import json
+import re
+import sqlite3
+from typing import List, Dict, Any, Optional
+
 from fastapi import FastAPI, Request, BackgroundTasks, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from langchain_core.messages import HumanMessage
 
-# ---------------- CHATBOT SERVICES ----------------
-
+# --- Internal Service Imports ---
 from app.services.chatbot_service import (
-    get_patient_labs,
-    get_patient_abnormal,
-    get_patient_critical,
     generate_ai_summary_background,
     get_ai_summary_from_cache,
-    answer_user_question,
 )
-
-# ---------------- REPORT SERVICES ----------------
-
 from app.services.report_service import (
     report_summary,
     report_by_lab,
@@ -27,28 +33,28 @@ from app.services.report_service import (
     unreviewed_critical_summary,
     recent_critical_activity,
 )
-
-# ---------------- RISK SERVICES ----------------
-
 from app.services.risk_service import (
     get_patient_risk_score,
-    get_all_patients_risk_scores,
     get_high_risk_patients,
     get_risk_distribution,
 )
+from database.db import get_connection
 
-# ---------------- APP INIT ----------------
+# --- AI & Agent Imports ---
+from ai.agent import app as agent_app, AgentState
+from ai.llm_client import LocalChatOllama as ChatOpenAI
+from ai.risk_model import predict_patient_risk
+from app.vector.chroma_store import search_documents
+from app.queries.sql_templates import get_count_query
 
+# --- App Initialization ---
 app = FastAPI(
     title="Lab Report Interpretation System",
     description="Human-like chatbot with AI-assisted lab summaries (Non-diagnostic)",
     version="1.2.1",
 )
-# ---------------- RAG SERVICES ----------------
-from app.services.rag_service import rag_answer
 
-# ---------------- STATIC & TEMPLATES ----------------
-
+# --- Static Files & Template Configuration ---
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
@@ -73,23 +79,6 @@ def ml_dashboard(request: Request):
         {"request": request}
     )
 
-# =====================================================
-# BASIC CHATBOT DATA APIs
-# =====================================================
-
-@app.get("/chat/patient/{subject_id}")
-def patient_labs(subject_id: int):
-    return get_patient_labs(subject_id)
-
-
-@app.get("/chat/patient/{subject_id}/abnormal")
-def patient_abnormal(subject_id: int):
-    return get_patient_abnormal(subject_id)
-
-
-@app.get("/chat/patient/{subject_id}/critical")
-def patient_critical(subject_id: int):
-    return get_patient_critical(subject_id)
 
 
 # =====================================================
@@ -121,69 +110,19 @@ def patient_ai_summary(subject_id: int, background_tasks: BackgroundTasks):
     }
 
 
-# =====================================================
-# HUMAN-LIKE CHATBOT API (SAFE + CONFIDENCE SCORE)
-# =====================================================
-
 class ChatRequest(BaseModel):
-    question: str = Field(..., min_length=3, description="User question")
-
-class RAGRequest(BaseModel):
-    question: str = Field(..., min_length=3, description="RAG question")
-
-@app.post("/chat/patient/{subject_id}/ask")
-def chat_with_patient(subject_id: int, payload: ChatRequest):
-    """
-    Rule-based chatbot with confidence score.
-    Vector DB similarity score will replace this later.
-    """
-
-    question = payload.question.strip()
-
-    if not question:
-        raise HTTPException(
-            status_code=400,
-            detail="Question cannot be empty."
-        )
-
-    # ---------------- GET ANSWER ----------------
-    result = answer_user_question(
-        subject_id=subject_id,
-        question=question
-    )
-
-    # ---------------- NORMALIZE RESPONSE ----------------
-    if isinstance(result, dict):
-        answer_text = result.get("answer", "")
-    else:
-        answer_text = result
-
-    # ---------------- CONFIDENCE SCORE ----------------
-    confidence_score = 0.85
-
-    answer_lower = answer_text.lower()
-
-    if "consult a qualified healthcare professional" in answer_lower:
-        confidence_score = 0.30
-    elif "critical" in answer_lower:
-        confidence_score = 0.95
-    elif "abnormal" in answer_lower:
-        confidence_score = 0.90
-
-    return {
-        "subject_id": subject_id,
-        "question": question,
-        "answer": answer_text,
-        "confidence_score": round(confidence_score, 2)
-    }
+    question: str = Field(..., min_length=1, description="User question")
 
 
-# =====================================================
+
+
+# ==============================================================================
 # REPORTING APIs (DASHBOARD INSIGHTS)
-# =====================================================
+# ==============================================================================
 
 @app.get("/reports/summary")
 def reports_summary():
+    """Returns a categorical count of all lab results (NORMAL, ABNORMAL, etc.)."""
     return report_summary()
 
 
@@ -252,22 +191,11 @@ def predict_high_risk_patients(risk_level: int = 2, limit: int = 50):
     return get_high_risk_patients(risk_level, limit)
 
 
-@app.get("/predict/all-patients")
-def predict_all_patients_risk(limit: int = 100):
-    """
-    Get risk scores for all patients (paginated)
-    """
-    return get_all_patients_risk_scores(limit)
 
 
-# =====================================================
+# ==============================================================================
 # AGENTIC CHATBOT API (LANGGRAPH + STREAMING)
-# =====================================================
-from fastapi.responses import StreamingResponse
-from ai.agent import app as agent_app, AgentState
-from ai.llm_client import LocalChatOllama as ChatOpenAI
-from langchain_core.messages import HumanMessage
-import json
+# ==============================================================================
 
 @app.post("/chat/stream")
 async def chat_stream(payload: ChatRequest):
@@ -281,20 +209,23 @@ async def chat_stream(payload: ChatRequest):
     - Token Streaming
     """
     import re
-    import sqlite3
+    from database.db import get_connection
     from app.queries.sql_templates import get_count_query
     
     question = payload.question.strip()
     
     async def event_generator():
-        import re
-        import sqlite3
-        from app.queries.sql_templates import get_count_query
-        from ai.risk_model import predict_patient_risk
-        from app.vector.chroma_store import search_documents
-        
-        lower_q = question.lower()
+        lower_q = question.lower().strip()
         patient_match = re.search(r'\d{6,}', question)
+        
+        # ============================================================
+        # FAST PATH 0: GREETINGS & SHORT INPUTS (0 LLM Calls)
+        # ============================================================
+        greetings = ["hi", "hello", "hey", "good morning", "good afternoon", "hii", "hiii", "h", "help", "ok", "yes", "no"]
+        if lower_q in greetings or len(lower_q) <= 2:
+            yield f"data: {json.dumps({'type': 'token', 'content': 'Hello! I am your Lab Assistant. How can I help you with your lab results or medical questions today?'})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            return
         
         # ============================================================
         # FAST PATH 1: COUNT Intent (1 LLM Call)
@@ -309,7 +240,7 @@ async def chat_stream(payload: ChatRequest):
             if status: entities["status"] = status
             sql, params = get_count_query(entities)
             
-            conn = sqlite3.connect("database/lab_results.db")
+            conn = get_connection()
             cur = conn.cursor()
             cur.execute(sql, params)
             count = cur.fetchone()[0]
@@ -388,15 +319,3 @@ async def chat_stream(payload: ChatRequest):
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
-@app.post("/chat/rag/ask")
-def chat_rag(payload: RAGRequest):
-    """
-    Backward compatible RAG endpoint using the new Agent
-    """
-    state = agent_app.invoke({"question": payload.question})
-    return {
-        "mode": "rag",
-        "question": payload.question,
-        "answer": state.get("final_answer", "I could not process your request."),
-        "intent": state.get("intent")
-    }

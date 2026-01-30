@@ -1,5 +1,5 @@
 import pandas as pd
-import sqlite3
+from database.db import get_connection
 import os
 import sys
 from pathlib import Path
@@ -70,7 +70,7 @@ def run_chunking():
         print(f"Database not found at {DB_PATH}")
         return []
 
-    conn = get_db_connection()
+    conn = get_connection()
     
     try:
         print("Fetching data from lab_interpretations...")

@@ -1,4 +1,4 @@
-from app.db import get_db
+from database.db import get_connection as get_db
 from datetime import datetime, timedelta
 
 

@@ -10,7 +10,7 @@ import os
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from app.db import get_db
+from database.db import get_connection as get_db
 from datetime import datetime
 
 

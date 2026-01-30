@@ -8,18 +8,31 @@ from langgraph.graph import StateGraph, END
 
 from app.vector.chroma_store import search_documents
 from ai.risk_model import predict_patient_risk
+from database.db import get_connection
 import pandas as pd
-import sqlite3
 
-# Define the state of the agent
+# ==============================================================================
+# PROTOTYPE HEALTHCARE AGENT (LANGGRAPH)
+# ==============================================================================
+# This module implements a state-driven chatbot that can:
+# 1. Categorize User Intent (RAG vs SQL Aggregation vs ML Prediction)
+# 2. Retrieve Knowledge (from ChromaDB)
+# 3. Aggregate Lab Data (from SQLite)
+# 4. Predict Clinical Risk (via Random Forest)
+# 5. Synthesize a streaming-friendly response.
+# ==============================================================================
+
 class AgentState(TypedDict):
+    """
+    Maintains the state across the LangGraph workflow.
+    """
     question: str
-    intent: str  # "rag", "count", "risk", "unsupported"
-    entities: Dict[str, Any]  # e.g., {"subject_id": "123", "test": "glucose"}
-    context: List[str]  # Retrieved RAG chunks
-    numerical_result: Union[int, float, None, str]
-    risk_data: Dict[str, Any]
-    final_answer: str
+    intent: str  # One of: "rag", "count", "risk", "unsupported"
+    entities: Dict[str, Any]  # Extracted entities like subject_id or test name
+    context: List[str]  # Chunks retrieved from RAG
+    numerical_result: Union[int, float, None, str]  # Results from SQL queries
+    risk_data: Dict[str, Any]  # Output from the ML risk model
+    final_answer: str  # The prompt prepared for the final LLM synthesis
 
 # LLM Initialize (LocalChatOllama ignores model param, uses tinyllama from llm_client.py)
 llm = ChatOpenAI(temperature=0)
@@ -30,11 +43,13 @@ def categorize_intent(state: AgentState):
     """
     LLM-driven intent classification.
     """
-    prompt = f"""Analyze the following medical query and categorize it into one of these intents:
-1. 'rag': Knowledge retrieval, explaining terms, specific lab lookups (e.g., "What is glucose?", "What was the glucose for patient 123?").
-2. 'count': Quantitative questions, counting patients, total results (e.g., "How many critical patients are there?").
-3. 'risk': Risk assessment for a specific patient (e.g., "What is the risk level for patient 123?").
-4. 'unsupported': Anything else.
+    prompt = f"""Analyze the user's query and categorize it into exactly one of these intents:
+1. 'rag': Clinical knowledge retrieval, explaining medical terms, or detailed patient lab lookups.
+2. 'count': Quantitative/statistical questions about lab result counts or patient populations.
+3. 'risk': Clinical risk level assessment for a specific patient.
+4. 'unsupported': General chat, social greetings, jokes, non-medical advice, or anything unrelated to clinical lab records.
+
+Examples of 'unsupported': "Hi", "Tell me a joke", "What's the weather?", "Who are you?", "H".
 
 Return JSON only: {{"intent": "...", "entities": {{"subject_id": "...", "test": "...", "status": "..."}}}}
 
@@ -105,9 +120,10 @@ def retrieve_knowledge(state: AgentState):
 def execute_aggregation(state: AgentState):
     """
     Aggregator Node: Runs optimized SQL aggregation on the database.
+    Uses the centralized get_connection for thread-safe access.
     """
     entities = state['entities']
-    conn = sqlite3.connect("database/lab_results.db")
+    conn = get_connection()
     cur = conn.cursor()
     
     # Safe filtering based on entities using SQL
@@ -165,6 +181,12 @@ def generate_response(state: AgentState):
     num_res = state.get('numerical_result', "")
     risk_res = str(state.get('risk_data', ""))
     
+    # If it's a non-clinical/unsupported intent OR a short query with no context/data, return a friendly fallback.
+    if state.get("intent") == "unsupported" or (not state.get("context") and not state.get("numerical_result") and not state.get("risk_data")):
+        if len(state["question"]) < 10:
+             return {"final_answer": "Hello! I specialized in medical lab records and clinical knowledge. How can I help you today? You can ask me to explain lab terms, check patient results, or provide risk assessments."}
+        return {"final_answer": "I'm sorry, I couldn't find any specific clinical data for that query. I am a specialized assistant for medical lab records. Could you please provide more details, a patient ID, or ask a question about lab tests?"}
+
     prompt = f"""Base on the following data, provide a clear, professional, and explainable answer.
 Query: {state['question']}
 
@@ -178,10 +200,8 @@ Explain the 'why' if providing a risk score or count. If it's a lab result, inte
 
 Answer:"""
     
-    # We use stream() at the call site (main.py)
-    # This node just prepares the message for the LLM.
-    # To support streaming properly in LangGraph, we can return the chain or a message.
-    return {"final_answer": prompt} # Passing the prompt to be used by the streaming endpoint
+    # The final prompt is passed back to main.py to be used in the streaming response generator.
+    return {"final_answer": prompt}
 
 ### Build Graph ###
 # ... (rest of the graph code remains same, just updating generate_response definition)

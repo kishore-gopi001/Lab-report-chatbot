@@ -1,7 +1,7 @@
-import sqlite3
+from database.db import get_connection
 
-def analyze_unknowns():
-    conn = sqlite3.connect('database/lab_results.db')
+def analyze():
+    conn = get_connection()
     cur = conn.cursor()
     
     print("--- Top 20 Labs with UNKNOWN Status ---")
