@@ -1,287 +1,50 @@
-1. Patient-Specific Questions (Fact Lookup)
+# Chatbot Performance & Intent Guide
 
-📌 RAG
+This guide categorizes questions by their **Intent** and the number of **LLM Calls** required. 
+- **1 LLM Call (⚡ Fast-Path):** Optimized via Regex/Rules to bypass slow intent classification (~5-15s).
+- **2 LLM Calls (🧠 Agent Path):** Uses full LangGraph reasoning for complex or ambiguous queries (~60-90s).
 
-These ask about one patient and specific lab facts.
+---
 
-Examples:
+## 1. Intent: COUNT (Quantitative Queries)
+*Used for counting laboratory results and patient records using SQL.*
 
-What is the hemoglobin value of patient 10003400?
+### ⚡ 1 LLM Call (Optimized)
+- "Total number of abnormal results for patient 10014354?"
+- "How many critical labs for patient 10001726?"
+- "Total count of results for subject 10014354"
 
-Show sodium levels for patient 10002111
+### 🧠 2 LLM Calls (Agentic)
+- "Give me the total count of every single patient record in the database."
+- "How many distinct types of laboratory tests are available?"
+- "What is the count of results that are NOT marked as normal?"
 
-What tests were done for patient 10001234?
+---
 
-Latest glucose reading for patient 10004567
+## 2. Intent: RISK (Clinical Prediction)
+*Triggers the local Random Forest model for patient risk assessment.*
 
-What is the hematocrit value recorded?
+### ⚡ 1 LLM Call (Optimized)
+- "What is the clinical risk for patient 10014354?"
+- "Calculate the risk level for subject 10001726"
+- "Show risk assessment for 10014354"
 
-🧪 2. Test-Specific Questions
+### 🧠 2 LLM Calls (Agentic)
+- "Summarize the clinical risk for patient 10014354 and explain why the glucose is high."
+- "Compare the risk level of patient 10014354 with a typical critical patient."
+- "Based on the risk data, what are the next clinical steps for subject 10014354?"
 
-📌 RAG
+---
 
-Focused on one lab test, across context.
+## 3. Intent: RAG (Knowledge & Retrieval)
+*Semantic search in ChromaDB for medical knowledge or patient facts.*
 
-Examples:
+### ⚡ 1 LLM Call (Optimized)
+- "What is Glucose?"
+- "Explain the meaning of Hemoglobin."
+- "Why is high Creatinine dangerous?"
 
-What is Hematocrit?
-
-What does a WBC test measure?
-
-What is the normal range for platelets?
-
-Why is creatinine important?
-
-What unit is sodium measured in?
-
-🚦 3. Status-Based Questions (Normal / Abnormal / Critical)
-
-📌 Hybrid (Rules + RAG)
-
-Examples:
-
-Is patient 10003400 critical?
-
-Which test result is abnormal for patient 10002111?
-
-Does this patient have any critical labs?
-
-What does an abnormal glucose level mean?
-
-🔢 4. Count / Aggregate Questions
-
-📌 Deterministic (SQL / logic)
-
-❌ Do NOT send these to RAG directly.
-
-Examples:
-
-How many patients are critical?
-
-Count abnormal lab results
-
-How many hematocrit tests are below normal?
-
-Total number of patients tested
-
-How many reports were uploaded today?
-
-📈 5. Trend / Time-Series Questions
-
-📌 Hybrid
-
-Examples:
-
-How has glucose changed over time for patient 10001234?
-
-Is creatinine increasing or decreasing?
-
-Show platelet trend for last 6 months
-
-Has sodium been stable?
-
-🧬 6. Comparison Questions
-
-📌 Hybrid
-
-Examples:
-
-Compare hemoglobin and hematocrit
-
-Which is worse: sodium or potassium?
-
-Compare patient 1001 and 1002 lab results
-
-Which test shows most abnormalities?
-
-🧾 7. Summary / Overview Questions
-
-📌 Hybrid
-
-Examples:
-
-Summarize patient 10003400 lab report
-
-Give an overview of abnormal labs
-
-Summarize critical findings
-
-Provide a short lab report summary
-
-🧠 8. Explanation / Interpretation Questions
-
-📌 RAG (grounded)
-
-⚠️ No diagnosis or treatment.
-
-Examples:
-
-What does low hematocrit indicate?
-
-Why is high WBC concerning?
-
-Explain abnormal platelet count
-
-What does critical sodium mean?
-
-🚫 9. Negative / Absence Questions
-
-📌 Hybrid
-
-Examples:
-
-Does the patient have any normal labs?
-
-Are there no critical results?
-
-Is everything within range?
-
-Any tests missing?
-
-🔎 10. Filtering Questions
-
-📌 Deterministic + RAG
-
-Examples:
-
-Show only abnormal labs
-
-List critical tests for patient 10003400
-
-Filter labs by date
-
-Show tests above normal range
-
-🗂️ 11. Metadata / Dataset Questions
-
-📌 Deterministic
-
-Examples:
-
-How many lab records exist?
-
-What datasets are loaded?
-
-What data sources are used?
-
-When was the last update?
-
-🧪 12. Rule / Threshold Questions
-
-📌 Deterministic
-
-Examples:
-
-What is the critical range for potassium?
-
-What rules are applied for hematocrit?
-
-Which tests have no rules?
-
-Why is this marked UNKNOWN?
-
-📊 13. Distribution / Analytics Questions
-
-📌 Deterministic / ML
-
-Examples:
-
-Distribution of abnormal vs normal labs
-
-Percentage of critical results
-
-Risk distribution by patient
-
-Which test has highest critical rate?
-
-🧠 14. Predictive / ML-Based Questions
-
-📌 ML Model (NOT RAG)
-
-Examples:
-
-What is the patient risk score?
-
-Is this patient high risk?
-
-Predict future glucose trend
-
-Which patient is most at risk?
-
-🧩 15. “Why / How” System Questions
-
-📌 RAG
-
-Examples:
-
-Why was this marked critical?
-
-How does the system classify abnormal labs?
-
-How is risk score calculated?
-
-How does the chatbot work?
-
-🧭 16. Validation / Sanity Check Questions
-
-📌 Deterministic
-
-Examples:
-
-Is this value within normal range?
-
-Check if hematocrit 27 is critical
-
-Validate sodium level 160
-
-Is this lab result valid?
-
-🔁 17. Cross-Patient Questions
-
-📌 Hybrid
-
-Examples:
-
-Which patients have critical hematocrit?
-
-List patients with abnormal glucose
-
-Compare abnormal counts across patients
-
-🧪 18. Data Quality / Error Questions
-
-📌 Deterministic
-
-Examples:
-
-Why is this test marked UNKNOWN?
-
-Missing reference range for which tests?
-
-Invalid lab values
-
-Duplicate records
-
-📚 19. Knowledge-Only Questions (Static)
-
-📌 RAG (knowledge base)
-
-Examples:
-
-What is a lab reference range?
-
-What is a critical lab value?
-
-Difference between abnormal and critical
-
-🧠 20. Mixed / Compound Questions
-
-📌 Router required
-
-Examples:
-
-How many patients are critical and why?
-
-Count abnormal labs and summarize them
-
-Show critical patients and explain findings
+### 🧠 2 LLM Calls (Agentic)
+- "Show me all abnormal results for patient 10014354 and explain the science behind them."
+- "How does high glucose relate to the other findings for patient 10001726?"
+- "List the critical findings for 10014354 and provide a summary for a physician."

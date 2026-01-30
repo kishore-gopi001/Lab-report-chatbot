@@ -6,3 +6,8 @@ python-dotenv
 requests
 scikit-learn
 numpy
+langchain
+langgraph
+chromadb
+openai
+sentence-transformers

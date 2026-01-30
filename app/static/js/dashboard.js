@@ -1,5 +1,4 @@
-let chatMode = "deterministic";
-let summaryPoll = null;
+// dashboard.js logic
 
 
 // =====================================================
@@ -153,7 +152,7 @@ async function loadTopTestsTable() {
                 const tr = document.createElement("tr");
                 tr.innerHTML = `
                     <td>${row.test_name}</td>
-                    <td>${row.status}</td>
+                    <td><span class="badge badge-${row.status.toLowerCase()}">${row.status}</span></td>
                     <td>${row.patient_count}</td>
                 `;
                 tbody.appendChild(tr);
@@ -161,7 +160,7 @@ async function loadTopTestsTable() {
         }
     } catch (error) {
         console.error("Error loading top tests table:", error);
-        document.querySelector("#topTestsTable tbody").innerHTML = 
+        document.querySelector("#topTestsTable tbody").innerHTML =
             "<tr><td colspan='3'>Error loading data</td></tr>";
     }
 }
@@ -191,7 +190,7 @@ async function loadCriticalAlerts() {
         }
     } catch (error) {
         console.error("Error loading critical alerts:", error);
-        document.getElementById("criticalAlerts").innerHTML = 
+        document.getElementById("criticalAlerts").innerHTML =
             "<li>Error loading alerts</li>";
     }
 }
@@ -199,156 +198,11 @@ async function loadCriticalAlerts() {
 // =====================================================
 // INITIAL DASHBOARD LOAD
 // =====================================================
-loadSummary();
-loadLabChart();
-loadGenderChart();
-loadStatusChart();
-loadTopTestsTable();
-loadCriticalAlerts();
-
-// =====================================================
-// CHATBOT LOGIC (NUMERIC-SAFE)
-// =====================================================
-const toggleBtn = document.getElementById("chatbotToggle");
-const chatbotWindow = document.getElementById("chatbotWindow");
-const closeBtn = document.getElementById("chatbotClose");
-const sendBtn = document.getElementById("sendMessage");
-
-const chatInput = document.getElementById("chatInput");
-const chatMessages = document.getElementById("chatMessages");
-const aiSummaryBox = document.getElementById("aiSummary");
-const subjectInput = document.getElementById("subjectInput");
-
-let activeSubjectId = null;
-
-// Open / Close
-toggleBtn.onclick = () => chatbotWindow.classList.remove("hidden");
-closeBtn.onclick = () => chatbotWindow.classList.add("hidden");
-
-// Subject ID entered
-subjectInput.addEventListener("change", async () => {
-    activeSubjectId = subjectInput.value.trim();
-    chatMessages.innerHTML = "";
-
-    if (!activeSubjectId) return;
-
-    if (summaryPoll) clearInterval(summaryPoll);
-
-    aiSummaryBox.innerHTML = "<p>⏳ Generating AI summary…</p>";
-
-    summaryPoll = setInterval(async () => {
-        const res = await fetch(`/chat/patient/${activeSubjectId}/ai-summary`);
-        const data = await res.json();
-
-        if (data.summary) {
-            aiSummaryBox.innerHTML = `
-                <strong>🧠 AI Clinical Summary</strong>
-                <p style="margin-top:8px;">${data.summary}</p>
-                <small>${data.disclaimer}</small>
-            `;
-            clearInterval(summaryPoll);
-            summaryPoll = null;
-        }
-    }, 2000);
-});
-
-
-const detModeBtn = document.getElementById("detMode");
-const ragModeBtn = document.getElementById("ragMode");
-const patientIdSection = document.getElementById("patientIdSection");
-
-detModeBtn.onclick = () => {
-    chatMode = "deterministic";
-
-    patientIdSection.style.display = "block";
-    aiSummaryBox.style.display = "block";
-
-    detModeBtn.classList.add("active");
-    ragModeBtn.classList.remove("active");
-};
-
-ragModeBtn.onclick = () => {
-    chatMode = "rag";
-
-    patientIdSection.style.display = "none";
-    aiSummaryBox.style.display = "none";
-
-    chatMessages.innerHTML = "";
-
-    if (summaryPoll) {
-        clearInterval(summaryPoll);
-        summaryPoll = null;
-    }
-
-    ragModeBtn.classList.add("active");
-    detModeBtn.classList.remove("active");
-};
-
-
-// Send chat message
-sendBtn.onclick = async () => {
-    const question = chatInput.value.trim();
-    if (!question) return;
-
-    chatMessages.innerHTML += `<div class="msg user">${question}</div>`;
-    chatInput.value = "";
-
-    let res;
-
-    try {
-        if (chatMode === "deterministic") {
-            if (!activeSubjectId) {
-                chatMessages.innerHTML += `
-                    <div class="msg bot">
-                        <p>Please enter a Patient Subject ID.</p>
-                    </div>`;
-                return;
-            }
-
-            res = await fetch(`/chat/patient/${activeSubjectId}/ask`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ question })
-            });
-
-        } else {
-            res = await fetch(`/chat/rag/ask`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ question })
-            });
-        }
-
-        if (!res.ok) throw new Error("Server error");
-
-        const data = await res.json();
-
-        chatMessages.innerHTML += `
-            <div class="msg bot">
-                <strong>${chatMode === "rag" ? "🤖 AI / Dataset Answer" : "📋 Response"}</strong>
-                <p style="margin-top:6px;">${data.answer || "No response available."}</p>
-            </div>
-        `;
-
-    } catch (err) {
-        chatMessages.innerHTML += `
-            <div class="msg bot">
-                <p>⚠️ Unable to process your request right now.</p>
-            </div>
-        `;
-    }
-
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-};
-
-
-
-// 🔑 Ensure correct initial mode UI
-window.addEventListener("load", () => {
-    chatMode = "deterministic";
-    patientIdSection.style.display = "block";
-    aiSummaryBox.style.display = "block";
-
-    detModeBtn.classList.add("active");
-    ragModeBtn.classList.remove("active");
+document.addEventListener("DOMContentLoaded", () => {
+    loadSummary();
+    loadLabChart();
+    loadGenderChart();
+    loadStatusChart();
+    loadTopTestsTable();
+    loadCriticalAlerts();
 });

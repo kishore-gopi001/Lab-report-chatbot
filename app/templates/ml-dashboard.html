@@ -1,58 +1,26 @@
 {% extends "base.html" %}
 {% block content %}
 
-<style>
-    .dashboard-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-        padding: 0 20px;
-    }
-    
-    .dashboard-nav {
-        display: flex;
-        gap: 10px;
-    }
-    
-    .dashboard-nav a {
-        padding: 10px 20px;
-        border-radius: 6px;
-        text-decoration: none;
-        font-weight: 600;
-        transition: all 0.2s;
-    }
-    
-    .dashboard-nav a.active {
-        background: #1f3c88;
-        color: white;
-    }
-    
-    .dashboard-nav a:not(.active) {
-        background: #f0f0f0;
-        color: #333;
-    }
-    
-    .dashboard-nav a:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-</style>
 
-<!-- Dashboard Header with Navigation -->
+<!-- Dashboard Header -->
 <div class="dashboard-header">
-    <h1>🤖 ML Risk Prediction Dashboard</h1>
-    <div class="dashboard-nav">
-        <a href="/dashboard">📊 Lab Dashboard</a>
-        <a href="/ml-dashboard" class="active">🤖 ML Dashboard</a>
-    </div>
+    <h1>ML Risk Prediction Dashboard</h1>
 </div>
 
 <!-- RISK PREDICTION OVERVIEW CARDS -->
 <section class="cards">
-    <div class="card normal"><h3>📊 Predicted Normal Risk</h3><p id="riskNormalCount">–</p></div>
-    <div class="card abnormal"><h3>⚠️ Predicted Abnormal Risk</h3><p id="riskAbnormalCount">–</p></div>
-    <div class="card critical"><h3>🔴 Predicted Critical Risk</h3><p id="riskCriticalCount">–</p></div>
+    <div class="card normal">
+        <h3>Predicted Normal Risk</h3>
+        <p id="riskNormalCount" class="badge-normal">–</p>
+    </div>
+    <div class="card abnormal">
+        <h3>Predicted Abnormal Risk</h3>
+        <p id="riskAbnormalCount" class="badge-abnormal">–</p>
+    </div>
+    <div class="card critical">
+        <h3>Predicted Critical Risk</h3>
+        <p id="riskCriticalCount" class="badge-critical">–</p>
+    </div>
 </section>
 
 <!-- ML CHARTS SECTION -->
@@ -62,7 +30,7 @@
         <h3>Patient Risk Distribution</h3>
         <canvas id="patientRiskChart"></canvas>
     </div>
-    
+
     <!-- Recent Critical Activity (Horizontal Bar) -->
     <div class="chart-box">
         <h3>Recent Critical Tests (24h)</h3>
@@ -71,28 +39,27 @@
 </section>
 
 <section class="charts">
-    <!-- Unreviewed Critical Summary (KPI Cards) -->
     <div class="chart-box">
         <h3>Unreviewed Critical Alerts</h3>
-        <div id="unreviewed-stats" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 20px;">
-            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107;">
-                <p style="margin: 0 0 5px 0; color: #666; font-size: 0.9rem;">Total Unreviewed</p>
-                <p style="margin: 0; font-size: 2rem; font-weight: bold; color: #ff9800;" id="totalUnreviewed">–</p>
+        <div id="unreviewed-stats" class="summary-stats-grid">
+            <div class="summary-stat-box warning">
+                <p class="stat-label">Total Unreviewed</p>
+                <p class="stat-value" id="totalUnreviewed">–</p>
             </div>
-            <div style="background: #f8d7da; padding: 15px; border-radius: 8px; border-left: 4px solid #dc3545;">
-                <p style="margin: 0 0 5px 0; color: #666; font-size: 0.9rem;">Affected Patients</p>
-                <p style="margin: 0; font-size: 2rem; font-weight: bold; color: #f44336;" id="affectedPatients">–</p>
+            <div class="summary-stat-box danger">
+                <p class="stat-label">Affected Patients</p>
+                <p class="stat-value" id="affectedPatients">–</p>
             </div>
         </div>
     </div>
-    
+
     <!-- High-Risk Patient Count (KPI Card) -->
     <div class="chart-box">
         <h3>High-Risk Patient Summary</h3>
-        <div id="high-risk-stats" style="padding: 20px; text-align: center;">
-            <p style="color: #666; font-size: 0.9rem; margin: 0;">Total Critical Patients</p>
-            <p style="font-size: 3rem; font-weight: bold; color: #f44336; margin: 10px 0;" id="criticalPatientCount">–</p>
-            <p style="color: #999; font-size: 0.85rem; margin: 0;">Requiring Immediate Attention</p>
+        <div id="high-risk-stats" class="kpi-box-centered">
+            <p class="stat-label">Total Critical Patients</p>
+            <p class="stat-value-large danger" id="criticalPatientCount">–</p>
+            <p class="stat-sublabel">Requiring Immediate Attention</p>
         </div>
     </div>
 </section>
@@ -100,14 +67,21 @@
 <!-- HIGH-RISK PATIENTS TABLE WITH PAGINATION -->
 <section class="insights">
     <div class="insight-box critical-box">
-        <h3>🤖 High Risk Patients (ML Prediction)</h3>
+        <h3>High Risk Patients (ML Prediction)</h3>
         <table id="riskPatientsTable">
             <thead>
-                <tr><th>Patient ID</th><th>Risk Level</th><th>Confidence</th><th>Normal %</th><th>Abnormal %</th><th>Critical %</th></tr>
+                <tr>
+                    <th>Patient ID</th>
+                    <th>Risk Level</th>
+                    <th>Confidence</th>
+                    <th>Normal %</th>
+                    <th>Abnormal %</th>
+                    <th>Critical %</th>
+                </tr>
             </thead>
             <tbody></tbody>
         </table>
-        
+
         <!-- Pagination Controls -->
         <div class="pagination">
             <button id="prevBtn" class="btn-pagination">← Previous</button>
@@ -117,6 +91,8 @@
     </div>
 </section>
 
-<script src="/static/js/ml-dashboard.js"></script>
+{% endblock %}
 
+{% block scripts %}
+<script src="/static/js/ml-dashboard.js"></script>
 {% endblock %}

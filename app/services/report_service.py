@@ -35,10 +35,10 @@ def report_summary():
 
 def report_patient_risk_distribution():
     """
-    Patient-level risk classification:
-    - CRITICAL: at least one CRITICAL lab
-    - ABNORMAL: abnormal but no critical
-    - NORMAL: only normal labs
+    Patient-level risk classification (Optimized SQL version):
+    - CRITICAL: level 2
+    - ABNORMAL: level 1
+    - NORMAL: level 0
     """
 
     conn = get_db()
@@ -46,19 +46,29 @@ def report_patient_risk_distribution():
 
     cur.execute("""
         SELECT
-            subject_id,
-            MAX(
-                CASE
-                    WHEN status = 'CRITICAL' THEN 2
-                    WHEN status = 'ABNORMAL' THEN 1
-                    ELSE 0
-                END
-            ) AS risk_level
-        FROM lab_interpretations
-        GROUP BY subject_id
+            CASE risk_level
+                WHEN 2 THEN 'CRITICAL'
+                WHEN 1 THEN 'ABNORMAL'
+                ELSE 'NORMAL'
+            END AS risk_label,
+            COUNT(*) AS count
+        FROM (
+            SELECT
+                subject_id,
+                MAX(
+                    CASE
+                        WHEN status = 'CRITICAL' THEN 2
+                        WHEN status = 'ABNORMAL' THEN 1
+                        ELSE 0
+                    END
+                ) AS risk_level
+            FROM lab_interpretations
+            GROUP BY subject_id
+        )
+        GROUP BY risk_level
     """)
 
-    patients = cur.fetchall()
+    rows = cur.fetchall()
     conn.close()
 
     summary = {
@@ -67,13 +77,8 @@ def report_patient_risk_distribution():
         "CRITICAL": 0
     }
 
-    for row in patients:
-        if row["risk_level"] == 2:
-            summary["CRITICAL"] += 1
-        elif row["risk_level"] == 1:
-            summary["ABNORMAL"] += 1
-        else:
-            summary["NORMAL"] += 1
+    for row in rows:
+        summary[row["risk_label"]] = row["count"]
 
     return summary
 

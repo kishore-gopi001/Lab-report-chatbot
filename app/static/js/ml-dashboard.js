@@ -56,7 +56,7 @@ async function loadPatientRiskChart() {
                     legend: { position: 'bottom' },
                     tooltip: {
                         callbacks: {
-                            label: function(context) {
+                            label: function (context) {
                                 return context.label + ': ' + context.parsed + ' patients';
                             }
                         }
@@ -103,10 +103,10 @@ async function loadRecentCriticalChart() {
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { 
+                plugins: {
                     legend: { display: true }
                 },
-                scales: { 
+                scales: {
                     x: { beginAtZero: true }
                 }
             }
@@ -164,7 +164,7 @@ async function loadHighRiskPatients(riskLevel = 2, limit = 100) {
         updatePaginationControls();
     } catch (error) {
         console.error("Error loading high-risk patients:", error);
-        document.querySelector("#riskPatientsTable tbody").innerHTML = 
+        document.querySelector("#riskPatientsTable tbody").innerHTML =
             "<tr><td colspan='6'>Error loading risk predictions</td></tr>";
     }
 }
@@ -182,7 +182,7 @@ function displayPaginatedPatients() {
             if (!patient.error && patient.risk_label) {
                 const row = `
                     <tr>
-                        <td><strong>${patient.subject_id}</strong></td>
+                        <td>${patient.subject_id}</td>
                         <td><span class="badge badge-${patient.risk_label.toLowerCase()}">${patient.risk_label}</span></td>
                         <td>${patient.confidence || 0}%</td>
                         <td>${patient.probabilities?.normal || 0}%</td>
@@ -242,7 +242,9 @@ async function initMLDashboard() {
 }
 
 // Load on page init
-initMLDashboard();
+document.addEventListener("DOMContentLoaded", () => {
+    initMLDashboard();
+});
 
 // Auto-refresh risk stats every 30 seconds (not the table - user controls that)
 setInterval(() => {

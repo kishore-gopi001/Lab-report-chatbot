@@ -40,6 +40,24 @@ LAB_THRESHOLDS = {
 
     "Glucose": {
         "ALL": {"min": 70.0, "max": 140.0, "critical_min": 40.0, "critical_max": 400.0}
+    },
+
+    "Chloride": {
+        "ALL": {"min": 98.0, "max": 107.0, "critical_min": 80.0, "critical_max": 120.0}
+    },
+
+    "Hematocrit": {
+        "M": {"min": 41.0, "max": 50.0, "critical_min": 21.0, "critical_max": 60.0},
+        "F": {"min": 36.0, "max": 44.0, "critical_min": 21.0, "critical_max": 60.0}
+    },
+
+    "Bicarbonate": {
+        "ALL": {"min": 22.0, "max": 28.0, "critical_min": 10.0, "critical_max": 40.0}
+    },
+
+    "RBC": {
+        "M": {"min": 4.7, "max": 6.1, "critical_min": 3.0},
+        "F": {"min": 4.2, "max": 5.4, "critical_min": 3.0}
     }
 }
 # Additional lab tests and their thresholds can be added here as needed.

@@ -261,31 +261,142 @@ def predict_all_patients_risk(limit: int = 100):
 
 
 # =====================================================
-# RAG CHATBOT API (GENERAL – DATASET LEVEL)
+# AGENTIC CHATBOT API (LANGGRAPH + STREAMING)
 # =====================================================
+from fastapi.responses import StreamingResponse
+from ai.agent import app as agent_app, AgentState
+from ai.llm_client import LocalChatOllama as ChatOpenAI
+from langchain_core.messages import HumanMessage
+import json
+
+@app.post("/chat/stream")
+async def chat_stream(payload: ChatRequest):
+    """
+    OPTIMIZED Streaming LangGraph Agent with Fast-Path:
+    - Fast-path for simple count queries (bypasses slow LLM intent classification)
+    - LLM-driven Intent Classification (for complex queries)
+    - RAG retrieval (Semantic)
+    - SQL Aggregation (Safe)
+    - ML Risk Prediction
+    - Token Streaming
+    """
+    import re
+    import sqlite3
+    from app.queries.sql_templates import get_count_query
+    
+    question = payload.question.strip()
+    
+    async def event_generator():
+        import re
+        import sqlite3
+        from app.queries.sql_templates import get_count_query
+        from ai.risk_model import predict_patient_risk
+        from app.vector.chroma_store import search_documents
+        
+        lower_q = question.lower()
+        patient_match = re.search(r'\d{6,}', question)
+        
+        # ============================================================
+        # FAST PATH 1: COUNT Intent (1 LLM Call)
+        # ============================================================
+        is_count = any(w in lower_q for w in ["how many", "total", "count", "number of"])
+        if is_count and patient_match:
+            yield f"data: {json.dumps({'type': 'status', 'content': 'Processing query...'})}\n\n"
+            subject_id = patient_match.group()
+            status = "CRITICAL" if "critical" in lower_q else "ABNORMAL" if "abnormal" in lower_q else "NORMAL" if "normal" in lower_q else None
+            
+            entities = {"subject_id": subject_id}
+            if status: entities["status"] = status
+            sql, params = get_count_query(entities)
+            
+            conn = sqlite3.connect("database/lab_results.db")
+            cur = conn.cursor()
+            cur.execute(sql, params)
+            count = cur.fetchone()[0]
+            conn.close()
+            
+            prompt = f"Patient {subject_id} has {count} {status if status else ''} laboratory results. Provide a brief, professional explanation."
+            
+            yield f"data: {json.dumps({'type': 'status', 'content': 'Generating answer...'})}\n\n"
+            llm = ChatOpenAI(streaming=True)
+            async for chunk in llm.astream([HumanMessage(content=prompt)]):
+                if chunk.content: yield f"data: {json.dumps({'type': 'token', 'content': chunk.content})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            return
+
+        # ============================================================
+        # FAST PATH 2: RISK Intent (1 LLM Call)
+        # ============================================================
+        is_risk = any(w in lower_q for w in ["risk", "prediction", "assessment"])
+        if is_risk and patient_match:
+            yield f"data: {json.dumps({'type': 'status', 'content': 'Predicting patient risk...'})}\n\n"
+            subject_id = int(patient_match.group())
+            risk_data = predict_patient_risk(subject_id)
+            
+            if "error" in risk_data:
+                prompt = f"Explain that we couldn't calculate risk for patient {subject_id} due to: {risk_data['error']}"
+            else:
+                prompt = f"Based on our Random Forest model, patient {subject_id} has a {risk_data['risk_label']} risk level ({risk_data['confidence']}% confidence). Explain this to the user."
+            
+            yield f"data: {json.dumps({'type': 'status', 'content': 'Generating clinical summary...'})}\n\n"
+            llm = ChatOpenAI(streaming=True)
+            async for chunk in llm.astream([HumanMessage(content=prompt)]):
+                if chunk.content: yield f"data: {json.dumps({'type': 'token', 'content': chunk.content})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            return
+
+        # ============================================================
+        # FAST PATH 3: RAG Knowledge (1 LLM Call)
+        # ============================================================
+        is_knowledge = any(lower_q.startswith(w) for w in ["what is", "define", "explain", "why is"])
+        if is_knowledge and not patient_match:
+            yield f"data: {json.dumps({'type': 'status', 'content': 'Searching knowledge base...'})}\n\n"
+            context_docs = search_documents(question, k=3)
+            context_text = "\n".join([doc["content"] for doc in context_docs])
+            
+            prompt = f"Answer the following question using the context provided.\nContext: {context_text}\nQuestion: {question}"
+            
+            yield f"data: {json.dumps({'type': 'status', 'content': 'Generating explanation...'})}\n\n"
+            llm = ChatOpenAI(streaming=True)
+            async for chunk in llm.astream([HumanMessage(content=prompt)]):
+                if chunk.content: yield f"data: {json.dumps({'type': 'token', 'content': chunk.content})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            return
+        
+        # ============================================================
+        # NORMAL PATH: Full agent graph for complex queries
+        # ============================================================
+        state = {"question": question, "context": [], "numerical_result": "", "risk_data": {}}
+        final_prompt = ""
+        
+        for event in agent_app.stream(state):
+            for node_name, output in event.items():
+                if node_name == "generate_response":
+                    final_prompt = output["final_answer"]
+                else:
+                    yield f"data: {json.dumps({'type': 'status', 'content': f'Node {node_name} finished...'})}\n\n"
+
+        if final_prompt:
+            llm = ChatOpenAI(streaming=True)
+            yield f"data: {json.dumps({'type': 'status', 'content': 'Synthesizing final answer...'})}\n\n"
+            
+            async for chunk in llm.astream([HumanMessage(content=final_prompt)]):
+                if chunk.content:
+                    yield f"data: {json.dumps({'type': 'token', 'content': chunk.content})}\n\n"
+        
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @app.post("/chat/rag/ask")
 def chat_rag(payload: RAGRequest):
     """
-    RAG-based chatbot:
-    - Vector DB (Chroma)
-    - LLM reasoning
-    - Answers ANY dataset-related question
-    - NOT patient-specific
+    Backward compatible RAG endpoint using the new Agent
     """
-
-    question = payload.question.strip()
-
-    if not question:
-        raise HTTPException(
-            status_code=400,
-            detail="Question cannot be empty."
-        )
-
-    answer = rag_answer(question)
-
+    state = agent_app.invoke({"question": payload.question})
     return {
         "mode": "rag",
-        "question": question,
-        "answer": answer
+        "question": payload.question,
+        "answer": state.get("final_answer", "I could not process your request."),
+        "intent": state.get("intent")
     }

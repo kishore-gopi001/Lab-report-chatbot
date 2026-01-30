@@ -1,13 +1,94 @@
+import json
+from typing import Any, AsyncIterator, Dict, List, Optional, Union
+
 import requests
 import re
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL = "tinyllama"
+OLLAMA_URL_GENERATE = "http://127.0.0.1:11434/api/generate"
+OLLAMA_URL_CHAT = "http://127.0.0.1:11434/api/chat"
+MODEL = "tinyllama:latest"
 
 SAFE_FALLBACK = (
     "Some laboratory values are outside expected ranges. "
     "These findings may warrant clinical review by a healthcare professional."
 )
+
+
+class MockMessage:
+    def __init__(self, content):
+        self.content = content
+
+
+class MockChunk:
+    def __init__(self, content):
+        self.content = content
+
+
+class LocalChatOllama:
+    """
+    A minimal wrapper around Ollama to mimic ChatOpenAI's interface
+    used in the LangGraph agent and streaming endpoints.
+    """
+
+    def __init__(self, model: str = None, temperature: float = 0, streaming: bool = False):
+        self.model = MODEL  # Always use the local model
+        self.temperature = temperature
+        self.streaming = streaming
+
+    def invoke(self, messages: List[Any], **kwargs) -> Any:
+        """
+        Synchronous call to Ollama (mimics ChatOpenAI.invoke)
+        """
+        prompt = messages[-1].content if hasattr(messages[-1], "content") else str(messages[-1])
+        
+        payload = {
+            "model": self.model,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": self.temperature,
+            }
+        }
+        
+        try:
+            response = requests.post(OLLAMA_URL_GENERATE, json=payload, timeout=60)
+            response.raise_for_status()
+            content = response.json().get("response", "")
+            return MockMessage(content)
+        except Exception as e:
+            print(f"Error in LocalChatOllama.invoke: {e}")
+            return MockMessage(SAFE_FALLBACK)
+
+    async def astream(self, messages: List[Any], **kwargs) -> AsyncIterator[Any]:
+        """
+        Asynchronous streaming call to Ollama (mimics ChatOpenAI.astream)
+        """
+        prompt = messages[-1].content if hasattr(messages[-1], "content") else str(messages[-1])
+        
+        payload = {
+            "model": self.model,
+            "prompt": prompt,
+            "stream": True,
+            "options": {
+                "temperature": self.temperature,
+            }
+        }
+        
+        try:
+            import httpx
+            async with httpx.AsyncClient() as client:
+                async with client.stream("POST", OLLAMA_URL_GENERATE, json=payload, timeout=90) as response:
+                    async for line in response.aiter_lines():
+                        if not line:
+                            continue
+                        chunk = json.loads(line)
+                        if "response" in chunk:
+                            yield MockChunk(chunk["response"])
+                        if chunk.get("done"):
+                            break
+        except Exception as e:
+            print(f"Error in LocalChatOllama.astream: {e}")
+            yield MockChunk(" Error connecting to local LLM.")
 
 
 def _clean_text(text: str) -> str:
@@ -39,7 +120,7 @@ def _clean_text(text: str) -> str:
         text = re.sub(bad, safe, text, flags=re.IGNORECASE)
 
     # ✅ Ensure sentence completeness
-    if text[-1] not in ".!?":
+    if text and text[-1] not in ".!?":
         text += " Further clinical review is advised."
 
     return text
@@ -90,7 +171,7 @@ Provide a concise explanation in 2–3 complete sentences.
 
     try:
         response = requests.post(
-            OLLAMA_URL,
+            OLLAMA_URL_GENERATE,
             json=payload,
             timeout=90
         )
@@ -133,5 +214,6 @@ Answer concisely.
         }
     }
 
-    response = requests.post(OLLAMA_URL, json=payload, timeout=60)
+    response = requests.post(OLLAMA_URL_GENERATE, json=payload, timeout=60)
     return response.json().get("response", "").strip()
+
